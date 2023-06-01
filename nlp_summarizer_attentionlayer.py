@@ -4,9 +4,10 @@
 Original file is located at
     https://colab.research.google.com/drive/1t9QuqEhovfOkFuVNo-mKQ6nUnavfCLmV
 """
-import tensorflow as tf
+
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 import re
 import string
 
@@ -14,7 +15,6 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.translate.bleu_score import sentence_bleu
 from nltk.translate.bleu_score import SmoothingFunction
-
 from sklearn import datasets
 from sklearn.model_selection import train_test_split
 
@@ -36,8 +36,7 @@ from attention import AttentionLayer
 nltk.download('stopwords')
 
 # dataset
-data = pd.read_csv('cnn_dailymail\\train_5000_lines.csv', encoding='latin-1')
-data=data.astype(str) # alteration based on AttributeError when processing train_5000
+data = pd.read_csv('cnn_dailymail\\train.csv', encoding='latin-1')
 
 # CONTRACTION MAPPING FOR PREPROCESSING
 mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot", "'cause": "because", "could've": "could have", "couldn't": "could not",
@@ -101,7 +100,8 @@ cleaned_data['highlight'].replace('', np.nan, inplace=True)
 cleaned_data.dropna(axis=0, inplace=True)
 
 # Adding START and END tokens for indication
-cleaned_data['highlight'] = cleaned_data['highlight'].apply(lambda x: '<START>' + ' ' + x + ' ' + '<END>')
+cleaned_data['highlight'] = cleaned_data['highlight'].apply(
+    lambda x: '<START>' + ' ' + x + ' ' + '<END>')
 for i in range(10):
     print('Article: ', cleaned_data['article'][i])
     print('Highlight:', cleaned_data['highlight'][i])
@@ -109,7 +109,8 @@ for i in range(10):
 
 # Get max length of texts and summaries.
 news_length = max([len(text.split()) for text in cleaned_data['article']])
-headline_length = max([len(text.split()) for text in cleaned_data['highlight']])
+headline_length = max([len(text.split())
+                      for text in cleaned_data['highlight']])
 print(news_length, headline_length)
 
 text_word_count = []
@@ -121,7 +122,8 @@ for i in cleaned_data['article']:
 for i in cleaned_data['highlight']:
     headline_word_count.append(len(i.split()))
 
-length_df = pd.DataFrame({'Body': text_word_count, 'Highlights': headline_word_count})
+length_df = pd.DataFrame(
+    {'Body': text_word_count, 'Highlights': headline_word_count})
 length_df.hist(bins=20)
 plt.show()
 
@@ -145,7 +147,8 @@ tokenizer_headline = Tokenizer()
 tokenizer_headline.fit_on_texts(list(y_train))
 y_train_seq = tokenizer_headline.texts_to_sequences(y_train)
 y_test_seq = tokenizer_headline.texts_to_sequences(y_test)
-y_train_pad = pad_sequences(y_train_seq, maxlen=headline_length, padding='post')
+y_train_pad = pad_sequences(
+    y_train_seq, maxlen=headline_length, padding='post')
 y_test_pad = pad_sequences(y_test_seq, maxlen=headline_length, padding='post')
 # Vocab size of summaries.
 headline_vocab = len(tokenizer_headline.word_index) + 1
@@ -173,16 +176,19 @@ encoder_output, a_enc, c_enc = e_lstm3(y_2)
 # Single LSTM layer ----> decoder
 d_input = Input(shape=(None,))
 d_emb = Embedding(headline_vocab, embedding_dim, trainable=True)(d_input)
-d_lstm = LSTM(latent_dim, return_sequences=True, return_state=True, dropout=0.3, recurrent_dropout=0.2)
+d_lstm = LSTM(latent_dim, return_sequences=True,
+              return_state=True, dropout=0.3, recurrent_dropout=0.2)
 # Final output states of encoder last layer are fed into decoder.
-decoder_output, decoder_fwd, decoder_back = d_lstm(d_emb, initial_state=[a_enc, c_enc])
+decoder_output, decoder_fwd, decoder_back = d_lstm(
+    d_emb, initial_state=[a_enc, c_enc])
 
 # Attention Layer
 attn_layer = AttentionLayer(name='attention_layer')
 attn_out, attn_states = attn_layer([encoder_output, decoder_output])
 
 # concatenating decoder input to attention layer output
-decoder_concat_input = Concatenate(axis=-1, name='concat_layer')([decoder_output, attn_out])
+decoder_concat_input = Concatenate(
+    axis=-1, name='concat_layer')([decoder_output, attn_out])
 # dense time distributed layer with softw=max fucntion for predicting the next word
 decoder_dense = TimeDistributed(Dense(headline_vocab, activation='softmax'))
 decoder_output = decoder_dense(decoder_concat_input)
@@ -193,18 +199,10 @@ model.summary()
 
 # Training the model with Early Stopping callback on val_loss.
 model.compile(optimizer='rmsprop', loss='sparse_categorical_crossentropy')
-callback = keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=2)
-EPOCHS = 1 # altered from 3
-history = model.fit([x_train_pad, 
-                     y_train_pad[:, :-1]], 
-                     y_train_pad.reshape(y_train_pad.shape[0], 
-                                        y_train_pad.shape[1], 1)[:, 1:], 
-                     epochs=EPOCHS, 
-                     callbacks=[callback], 
-                     batch_size=512, 
-                     validation_data=([x_test_pad, y_test_pad[:, :-1]], 
-                     y_test_pad.reshape(y_test_pad.shape[0], 
-                                        y_test_pad.shape[1], 1)[:, 1:]))
+callback = keras.callbacks.EarlyStopping(
+    monitor='val_loss', mode='min', verbose=1, patience=2)
+history = model.fit([x_train_pad, y_train_pad[:, :-1]], y_train_pad.reshape(y_train_pad.shape[0], y_train_pad.shape[1], 1)[:, 1:], epochs=3, callbacks=[
+                    callback], batch_size=512, validation_data=([x_test_pad, y_test_pad[:, :-1]], y_test_pad.reshape(y_test_pad.shape[0], y_test_pad.shape[1], 1)[:, 1:]))
 
 # Encoder inference model with trained inputs and outputs.
 encoder_model = Model(inputs=e_input, outputs=[encoder_output, a_enc, c_enc])
@@ -215,10 +213,11 @@ decoder_initial_state_c = Input(shape=(latent_dim,))
 decoder_hidden_state = Input(shape=(news_length, latent_dim))
 
 # Decoder inference model
-decoder_out, decoder_a, decoder_c = d_lstm(d_emb, initial_state=[decoder_initial_state_a, 
-                                                                 decoder_initial_state_c])
+decoder_out, decoder_a, decoder_c = d_lstm(
+    d_emb, initial_state=[decoder_initial_state_a, decoder_initial_state_c])
 attn_out_inf, attn_states_inf = attn_layer([decoder_hidden_state, decoder_out])
-decoder_inf_concat = Concatenate(axis=-1, name='concat')([decoder_out, attn_out_inf])
+decoder_inf_concat = Concatenate(
+    axis=-1, name='concat')([decoder_out, attn_out_inf])
 
 decoder_final = decoder_dense(decoder_inf_concat)
 decoder_model = Model([d_input]+[decoder_hidden_state, decoder_initial_state_a,
@@ -230,8 +229,7 @@ decoder_model = Model([d_input]+[decoder_hidden_state, decoder_initial_state_a,
 def decoded_sequence(input_seq):
     # Collecting output from encoder inference model.
     encoder_out, encoder_a, encoder_c = encoder_model.predict(input_seq)
-    # Initialise input to decoder neuron with START token. Thereafter output token predicted by each 
-    # neuron will be used as input for the subsequent.
+    # Initialise input to decoder neuron with START token. Thereafter output token predicted by each neuron will be used as input for the subsequent.
     # Single elt matrix used for maintaining dimensions.
     next_input = np.zeros((1, 1))
     next_input[0, 0] = tokenizer_headline.word_index['start']
@@ -244,8 +242,7 @@ def decoded_sequence(input_seq):
             [next_input] + [encoder_out, encoder_a, encoder_c])
         # Get index of output token from y(t) of decoder.
         output_idx = np.argmax(decoded_out[0, -1, :])
-        # If output index corresponds to END token, summary is terminated without of course adding the 
-        # END token itself.
+        # If output index corresponds to END token, summary is terminated without of course adding the END token itself.
 
         if output_idx == tokenizer_headline.word_index['end']:
             stop = True
@@ -268,5 +265,7 @@ predicted = []
 for i in range(20):
     print('Information:', X_test.iloc[i])
     print('Actual Highlight:', y_test.iloc[i])
-    print('Predicted Highlight:', decoded_sequence(x_test_pad[i].reshape(1, news_length)))
-    predicted.append(decoded_sequence(x_test_pad[i].reshape(1, news_length)).split())
+    print('Predicted Highlight:', decoded_sequence(
+        x_test_pad[i].reshape(1, news_length)))
+    predicted.append(decoded_sequence(
+        x_test_pad[i].reshape(1, news_length)).split())
