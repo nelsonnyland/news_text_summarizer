@@ -31,12 +31,12 @@ from keras.layers import Dense, TimeDistributed, LSTM, Embedding, Input
 from keras import Model
 
 # attention.py
-from attention import AttentionLayer
+from backup.attention import AttentionLayer
 
 nltk.download('stopwords')
 
 # dataset
-data = pd.read_csv('cnn_dailymail\\train.csv', encoding='latin-1')
+data = pd.read_csv('', encoding='latin-1')
 
 # CONTRACTION MAPPING FOR PREPROCESSING
 mapping = {"ain't": "is not", "aren't": "are not", "can't": "cannot", "'cause": "because", "could've": "could have", "couldn't": "could not",
